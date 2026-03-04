@@ -9,7 +9,10 @@ require('./typeorm-db')
 var st = require('st');
 var crypto = require('crypto');
 var express = require('express');
+var https = require('https');
 var http = require('http');
+var helmet = require('helmet');
+var rateLimit = require('express-rate-limit');
 var path = require('path');
 var ejsEngine = require('ejs-locals');
 var bodyParser = require('body-parser');
@@ -26,6 +29,19 @@ var cons = require('consolidate');
 const hbs = require('hbs')
 
 var app = express();
+
+// Security: Disable X-Powered-By header and add other security headers
+app.disable('x-powered-by');
+app.use(helmet());
+
+// Security: Rate limiting to prevent DoS attacks
+var limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use(limiter);
+
 var routes = require('./routes');
 var routesUsers = require('./routes/users.js')
 

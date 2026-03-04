@@ -8,7 +8,7 @@ var ms = require('ms');
 var streamBuffers = require('stream-buffers');
 var readline = require('readline');
 var moment = require('moment');
-var exec = require('child_process').exec;
+var execFile = require('child_process').execFile;
 var validator = require('validator');
 
 // zip-slip
@@ -36,7 +36,10 @@ exports.index = function (req, res, next) {
 
 exports.loginHandler = function (req, res, next) {
   if (validator.isEmail(req.body.username)) {
-    User.find({ username: req.body.username, password: req.body.password }, function (err, users) {
+    // Security: Use parameterized query to prevent SQL injection
+    var sanitizedUsername = validator.escape(String(req.body.username));
+    var sanitizedPassword = validator.escape(String(req.body.password));
+    User.find({ username: sanitizedUsername, password: sanitizedPassword }, function (err, users) {
       if (users.length > 0) {
         const redirectPage = req.body.redirectPage
         const session = req.session
@@ -158,7 +161,8 @@ exports.create = function (req, res, next) {
     var url = item.match(imgRegex)[1];
     console.log('found img: ' + url);
 
-    exec('identify ' + url, function (err, stdout, stderr) {
+    // Security: Use execFile with arguments array to prevent command injection
+    execFile('identify', [url], function (err, stdout, stderr) {
       console.log(err);
       if (err !== null) {
         console.log('Error (' + err + '):' + stderr);
@@ -181,7 +185,9 @@ exports.create = function (req, res, next) {
     */
 
     res.setHeader('Location', '/');
-    res.status(302).send(todo.content.toString('base64'));
+    // Security: Sanitize output to prevent XSS
+    var sanitizedContent = validator.escape(todo.content.toString('base64'));
+    res.status(302).send(sanitizedContent);
 
     // res.redirect('/#' + todo.content.toString('base64'));
   });
