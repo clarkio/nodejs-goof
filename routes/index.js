@@ -19,24 +19,23 @@ var fs = require('fs');
 // prototype-pollution
 var _ = require('lodash');
 
-exports.index = function (req, res, next) {
-  Todo.
-    find({}).
-    sort('-updated_at').
-    exec(function (err, todos) {
-      if (err) return next(err);
-
-      res.render('index', {
-        title: 'Patch TODO List',
-        subhead: 'Vulnerabilities at their best',
-        todos: todos,
-      });
+exports.index = async function (req, res, next) {
+  try {
+    const todos = await Todo.find({}).sort('-updated_at').exec();
+    res.render('index', {
+      title: 'Patch TODO List',
+      subhead: 'Vulnerabilities at their best',
+      todos: todos,
     });
+  } catch (err) {
+    return next(err);
+  }
 };
 
-exports.loginHandler = function (req, res, next) {
+exports.loginHandler = async function (req, res, next) {
   if (validator.isEmail(req.body.username)) {
-    User.find({ username: req.body.username, password: req.body.password }, function (err, users) {
+    try {
+      const users = await User.find({ username: req.body.username, password: req.body.password }).exec();
       if (users.length > 0) {
         const redirectPage = req.body.redirectPage
         const session = req.session
@@ -45,7 +44,9 @@ exports.loginHandler = function (req, res, next) {
       } else {
         return res.status(401).send()
       }
-    });
+    } catch (err) {
+      return res.status(500).send()
+    }
   } else {
     return res.status(401).send()
   }
@@ -172,60 +173,51 @@ exports.create = function (req, res, next) {
   new Todo({
     content: item,
     updated_at: Date.now(),
-  }).save(function (err, todo, count) {
-    if (err) return next(err);
-
-    /*
-    res.setHeader('Data', todo.content.toString('base64'));
-    res.redirect('/');
-    */
-
+  }).save().then(todo => {
     res.setHeader('Location', '/');
     res.status(302).send(todo.content.toString('base64'));
-
-    // res.redirect('/#' + todo.content.toString('base64'));
+  }).catch(err => {
+    return next(err);
   });
 };
 
-exports.destroy = function (req, res, next) {
-  Todo.findById(req.params.id, function (err, todo) {
-
-    try {
-      todo.remove(function (err, todo) {
-        if (err) return next(err);
-        res.redirect('/');
-      });
-    } catch (e) {
+exports.destroy = async function (req, res, next) {
+  try {
+    const todo = await Todo.findById(req.params.id).exec();
+    if (todo) {
+      await todo.deleteOne();
     }
-  });
+    res.redirect('/');
+  } catch (e) {
+    res.redirect('/');
+  }
 };
 
-exports.edit = function (req, res, next) {
-  Todo.
-    find({}).
-    sort('-updated_at').
-    exec(function (err, todos) {
-      if (err) return next(err);
-
-      res.render('edit', {
-        title: 'TODO',
-        todos: todos,
-        current: req.params.id
-      });
+exports.edit = async function (req, res, next) {
+  try {
+    const todos = await Todo.find({}).sort('-updated_at').exec();
+    res.render('edit', {
+      title: 'TODO',
+      todos: todos,
+      current: req.params.id
     });
+  } catch (err) {
+    return next(err);
+  }
 };
 
-exports.update = function (req, res, next) {
-  Todo.findById(req.params.id, function (err, todo) {
-
-    todo.content = req.body.content;
-    todo.updated_at = Date.now();
-    todo.save(function (err, todo, count) {
-      if (err) return next(err);
-
-      res.redirect('/');
-    });
-  });
+exports.update = async function (req, res, next) {
+  try {
+    const todo = await Todo.findById(req.params.id).exec();
+    if (todo) {
+      todo.content = req.body.content;
+      todo.updated_at = Date.now();
+      await todo.save();
+    }
+    res.redirect('/');
+  } catch (err) {
+    return next(err);
+  }
 };
 
 // ** express turns the cookie key to lowercase **
@@ -285,9 +277,10 @@ exports.import = function (req, res, next) {
       new Todo({
         content: item,
         updated_at: Date.now(),
-      }).save(function (err, todo, count) {
-        if (err) return next(err);
+      }).save().then(todo => {
         console.log('added ' + todo);
+      }).catch(err => {
+        console.log('error adding todo: ' + err);
       });
     }
   });

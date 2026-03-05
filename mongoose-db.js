@@ -45,14 +45,21 @@ console.log("Using Mongo URI " + mongoUri);
 mongoose.connect(mongoUri);
 
 User = mongoose.model('User');
-User.find({ username: 'admin@snyk.io' }).exec(function (err, users) {
-  console.log(users);
-  if (users.length === 0) {
-    console.log('no admin');
-    new User({ username: 'admin@snyk.io', password: 'SuperSecretPassword' }).save(function (err, user, count) {
-      if (err) {
+
+// Initialize admin user (using modern async/await syntax)
+(async function initAdminUser() {
+  try {
+    const users = await User.find({ username: 'admin@snyk.io' }).exec();
+    console.log(users);
+    if (users.length === 0) {
+      console.log('no admin');
+      try {
+        await new User({ username: 'admin@snyk.io', password: 'SuperSecretPassword' }).save();
+      } catch (err) {
         console.log('error saving admin user');
       }
-    });
+    }
+  } catch (err) {
+    console.log('Error finding admin user:', err);
   }
-});
+})();
